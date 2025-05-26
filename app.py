@@ -1,18 +1,24 @@
 from flask import Flask, Response
 import gspread
 import pandas as pd
-from oauth2client.service_account import ServiceAccountCredentials
+import os
+import json
+from google.oauth2.service_account import Credentials
 
 app = Flask(__name__)
 
 # Define the Google Sheets access scope
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 
-# Authenticate using the credentials file
-creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
+# Read credentials JSON string from environment variable
+credentials_info = os.getenv("GOOGLE_CREDENTIALS_JSON")
+credentials_dict = json.loads(credentials_info)
+
+# Authenticate using credentials dict
+creds = Credentials.from_service_account_info(credentials_dict, scopes=scope)
 client = gspread.authorize(creds)
 
-# ✅ Your actual master Google Sheet name
+# Your actual master Google Sheet name
 SHEET_NAME = "Master Sales Data"
 
 @app.route('/')
