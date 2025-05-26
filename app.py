@@ -1,52 +1,45 @@
 from flask import Flask, Response
-import pandas as pd
 import gspread
-from google.oauth2.service_account import Credentials
+import pandas as pd
 import os
 import json
+from google.oauth2.service_account import Credentials
 
 app = Flask(__name__)
 
-def get_gspread_client():
-    # Load credentials from environment variable
-    google_creds_json = os.environ.get("GOOGLE_CREDS")
+# Define the Google Sheets access scope
+scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 
-    if not google_creds_json:
-        raise Exception("GOOGLE_CREDS environment variable not set.")
+# Read credentials JSON string from environment variable
+credentials_info = os.getenv("GOOGLE_CREDENTIALS_JSON")
+credentials_dict = json.loads(credentials_info)
 
-    creds_dict = json.loads(google_creds_json)
+# Authenticate using credentials dict
+creds = Credentials.from_service_account_info(credentials_dict, scopes=scope)
+client = gspread.authorize(creds)
 
-    # Set up credentials
-    scopes = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-    client = gspread.authorize(creds)
-
-    return client
+# Your actual master Google Sheet name
+SHEET_NAME = "Master Sales Data"
 
 @app.route('/')
-def export_csv():
+def home():
+    return '✅ Google Sheets to Power BI API is running!'
+
+@app.route('/data')
+def get_data():
     try:
-        client = get_gspread_client()
-
-        # Open your Google Sheet by name and worksheet name
-        spreadsheet = client.open("Your Google Sheet Name")  # 🔁 Replace with your actual sheet name
-        worksheet = spreadsheet.worksheet("Sheet1")          # 🔁 Replace with actual worksheet if needed
-
-        data = worksheet.get_all_values()
-
-        if not data:
-            return "No data found in the Google Sheet.", 404
-
-        df = pd.DataFrame(data[1:], columns=data[0])  # Skip header row for data, use row 0 as column names
-        csv_data = df.to_csv(index=False)
+        sheet = client.open(SHEET_NAME).sheet1      # Open your Google Sheet
+        data = sheet.get_all_records()              # Fetch all rows
+        df = pd.DataFrame(data)                     # Convert to DataFrame
+        csv_data = df.to_csv(index=False)           # Convert to CSV format
 
         return Response(
             csv_data,
-            mimetype="text/csv",
-            headers={"Content-Disposition": "attachment; filename=data.csv"}
+            mimetype='text/csv',
+            headers={"Content-Disposition": "attachment;filename=data.csv"}
         )
     except Exception as e:
-        return f"Error: {str(e)}", 500
+        return f"❌ Error: {str(e)}", 500
 
 if __name__ == '__main__':
     app.run(debug=True)
